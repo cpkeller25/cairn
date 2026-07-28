@@ -1,4 +1,4 @@
-.PHONY: run build test lint tidy fmt clean
+.PHONY: run build test lint tidy fmt clean cover
 
 run:
 	PORT=8081 go run ./cmd/cairn
@@ -20,3 +20,8 @@ fmt:
 
 clean:
 	rm -rf bin/
+
+cover:
+	go test ./... -coverprofile=coverage.out
+	go tool cover -func=coverage.out | tail -1
+	
