@@ -7,7 +7,7 @@ build:
 	go build -o bin/cairn ./cmd/cairn
 
 test:
-	go test ./...
+	go test ./... -race
 
 lint:
 	go vet ./...
