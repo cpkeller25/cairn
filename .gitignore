@@ -1,0 +1,20 @@
+# Compiled binaries
+/bin/
+/cairn
+
+# Test and coverage output
+*.test
+*.out
+coverage.html
+
+# Local environment
+.env
+.env.local
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+Cairn_Project_Plan.md
+
