@@ -6,14 +6,19 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/cpkeller25/cairn/internal/api"
+	"github.com/cpkeller25/cairn/internal/ingest"
+	"github.com/cpkeller25/cairn/internal/store"
 )
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", handleHealthz)
+	st := store.NewMemoryStore()
+	fetcher := ingest.NewStubFetcher()
+	apiServer := api.NewServer(st, fetcher)
 
 	srv := &http.Server{
-		Handler:      mux,
+		Handler:      apiServer.Routes(),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -25,18 +30,11 @@ func main() {
 		log.Fatalf("cannot listen on %s: %v", addr, err)
 	}
 
-	// We only get here if the bind actually succeeded.
 	log.Printf("cairn listening on %s", ln.Addr())
 
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
 	}
-}
-
-func handleHealthz(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
 }
 
 func port() string {

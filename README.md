@@ -6,7 +6,7 @@ Cairn answers one question for an engineering org: **how healthy is each of our
 services, and who owns it?** Register a service, point it at a repository, and
 Cairn scores it against a weighted set of maturity checks.
 
-**Status:** In development. Phases 0–1 complete (skeleton, scorecard engine).
+**Status:** In development. Phases 0–2 complete (skeleton, scorecard engine, REST API).
 
 ## Quickstart
 
@@ -55,3 +55,17 @@ the facts came from.
 | `make build` | Build binary to `bin/cairn`           |
 | `make tidy`  | Sync `go.mod` / `go.sum`              |
 | `make clean` | Remove build artifacts                |
+
+## API
+| Method & path                         | Purpose                                  |
+|---------------------------------------|------------------------------------------|
+| `POST /api/v1/services`               | Register a service                       |
+| `GET /api/v1/services`                | List the catalog with latest scores      |
+| `GET /api/v1/services/{id}`           | Service detail + scorecard breakdown     |
+| `POST /api/v1/services/{id}/evaluate` | Gather facts, run the scorecard, persist |
+| `DELETE /api/v1/services/{id}`        | Remove a service                         |
+| `GET /api/v1/checks`                  | Check definitions and weights            |
+| `GET /healthz`                        | Liveness probe                           |
+
+Data is currently held in memory - Phase 3 adds Postgres.  Repository facts come
+from a deterministic stub - Phase 4 adds the Github adapter.
