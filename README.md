@@ -6,12 +6,15 @@ Cairn answers one question for an engineering org: **how healthy is each of our
 services, and who owns it?** Register a service, point it at a repository, and
 Cairn scores it against a weighted set of maturity checks.
 
-**Status:** In development. Phases 0–2 complete (skeleton, scorecard engine, REST API).
+**Status:** In development. Phases 0–3 complete (skeleton, scorecard engine, REST API, Postgres).
+
+**Requires:** Go 1.22+, Docker, and the Compose plugin (`docker compose`).
 
 ## Quickstart
 
 ```bash
-make run
+make db-up      # start Postgres in Docker
+make run        # migrations run automatically at startup
 curl localhost:8081/healthz
 ```
 
@@ -45,16 +48,24 @@ the facts came from.
 
 ## Development
 
-| Command      | Does                                  |
-|--------------|---------------------------------------|
-| `make run`   | Run the server locally on port 8081   |
-| `make test`  | Run all tests with the race detector  |
-| `make cover` | Run tests and report total coverage   |
-| `make lint`  | Static analysis (`go vet`)            |
-| `make fmt`   | Format with `gofmt`                   |
-| `make build` | Build binary to `bin/cairn`           |
-| `make tidy`  | Sync `go.mod` / `go.sum`              |
-| `make clean` | Remove build artifacts                |
+| Command         | Does                                                        |
+|-----------------|-------------------------------------------------------------|
+| `make run`      | Run the server locally on port 8081                         |
+| `make test`     | Run all tests with the race detector                        |
+| `make cover`    | Run tests and report total coverage                         |
+| `make lint`     | Static analysis (`go vet`)                                  |
+| `make fmt`      | Format with `gofmt`                                         |
+| `make build`    | Build binary to `bin/cairn`                                 |
+| `make tidy`     | Sync `go.mod` / `go.sum`                                    |
+| `make clean`    | Remove build artifacts                                      |
+| `make db-up`    | Start Postgres in Docker                                    |
+| `make db-down`  | Stop Postgres in Docker                                     |
+| `make db-reset` | **Destroy** the database and start fresh (deletes all data) |
+| `make psql`     | Access Postgres tables in Docker                            |
+
+`make test` starts throwaway Postgres containers via
+[testcontainers](https://testcontainers.com), so Docker must be running.
+Use `go test ./... -short` to skip the integration tests.
 
 ## API
 | Method & path                         | Purpose                                  |
@@ -67,5 +78,5 @@ the facts came from.
 | `GET /api/v1/checks`                  | Check definitions and weights            |
 | `GET /healthz`                        | Liveness probe                           |
 
-Data is currently held in memory - Phase 3 adds Postgres.  Repository facts come
-from a deterministic stub - Phase 4 adds the Github adapter.
+Data is persisted in Postgres. Repository facts currently come from a
+deterministic stub — Phase 4 adds the GitHub adapter.

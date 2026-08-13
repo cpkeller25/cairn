@@ -70,8 +70,11 @@ func New(in NewServiceInput, now time.Time) (Service, error) {
 		OwnerTeam:   strings.TrimSpace(in.OwnerTeam),
 		RepoURL:     normalizeRepoURL(in.RepoURL),
 		Tier:        in.Tier,
-		CreatedAt:   now.UTC(),
-		UpdatedAt:   now.UTC(),
+		// Truncated to microseconds: that is the finest resolution Postgres
+		// timestamptz can hold, so keeping nanoseconds would make a
+		// store round-trip lossy.
+		CreatedAt: now.UTC().Truncate(time.Microsecond),
+		UpdatedAt: now.UTC().Truncate(time.Microsecond),
 	}
 
 	if err := svc.Validate(); err != nil {
