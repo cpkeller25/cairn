@@ -9,7 +9,7 @@ Cairn scores it against a weighted set of maturity checks.
 **Status:** In development. Phases 0–4 complete (skeleton, scorecard engine,
 REST API, Postgres, GitHub ingestion).
 
-**Requires:** Go 1.22+, Docker, and the Compose plugin (`docker compose`).
+**Requires:** Go 1.25+, Docker, and the Compose plugin (`docker compose`).
 
 ## Quickstart
 
