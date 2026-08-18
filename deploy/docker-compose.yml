@@ -16,5 +16,23 @@ services:
         timeout: 5s
         retries: 10
 
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: cairn-app
+    environment:
+      PORT: "8080"
+      # "postgres" is the service name above; Compose resolves it on the
+      # shared network. Inside the container, localhost is the container.
+      DATABASE_URL: postgres://cairn:cairn@postgres:5432/cairn?sslmode=disable
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   cairn-pgdata:

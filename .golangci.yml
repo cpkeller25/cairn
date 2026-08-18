@@ -1,0 +1,18 @@
+version: "2"
+
+linters:
+  enable:
+    - bodyclose       # HTTP response bodies must be closed
+    - errcheck        # returned errors must be handled
+    - govet
+    - ineffassign     # assignments that are never used
+    - misspell
+    - staticcheck
+    - unused
+
+  exclusions:
+    rules:
+      # Test files may ignore errors in setup code for readability
+      - path: _test\.go
+        linters:
+          - errcheck

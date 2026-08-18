@@ -25,7 +25,7 @@ func Migrate(pool *pgxpool.Pool) error {
 	}
 
 	db := stdlib.OpenDBFromPool(pool)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {

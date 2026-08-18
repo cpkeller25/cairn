@@ -24,7 +24,7 @@ var (
 	// ErrRepoNotFound means GitHub retuned 404 for the repository.
 	ErrRepoNotFound = errors.New("repository not found on github")
 
-	// ErrRateLimited means teh GitHub API rate limit is exhausted.
+	// ErrRateLimited means the GitHub API rate limit is exhausted.
 	ErrRateLimited = errors.New("github api rate limit exceeded")
 )
 
@@ -88,15 +88,14 @@ func (f *GitHubFetcher) get(ctx context.Context, path string, dst any) error {
 	if err != nil {
 		return fmt.Errorf("calling github: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
-	switch {
-	case resp.StatusCode == http.StatusOK:
+	switch resp.StatusCode {
+	case http.StatusOK:
 		// carry on
-	case resp.StatusCode == http.StatusNotFound:
+	case http.StatusNotFound:
 		return ErrRepoNotFound
-	case resp.StatusCode == http.StatusForbidden,
-		resp.StatusCode == http.StatusTooManyRequests:
+	case http.StatusForbidden, http.StatusTooManyRequests:
 		if resp.Header.Get("X-RateLimit-Remaining") == "0" {
 			return ErrRateLimited
 		}

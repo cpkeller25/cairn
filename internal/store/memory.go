@@ -13,7 +13,7 @@ import (
 )
 
 // MemoryStore keeps the catalog in process memory.  It is safe for concurrent
-// use and exists so the API can be build and tested without a datbase
+// use and exists so the API can be build and tested without a database
 type MemoryStore struct {
 	mu       sync.RWMutex
 	services map[uuid.UUID]catalog.Service
@@ -84,7 +84,7 @@ func (s *MemoryStore) DeleteService(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// SaveReport records teh latest scorecard for a service, replacing any prior
+// SaveReport records the latest scorecard for a service, replacing any prior
 // result
 func (s *MemoryStore) SaveReport(ctx context.Context, serviceID uuid.UUID, r scorecard.Report) error {
 	s.mu.Lock()

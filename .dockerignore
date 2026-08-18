@@ -1,0 +1,10 @@
+.git
+.github
+bin/
+*.out
+coverage.html
+.env
+.env.local
+.vscode/
+.idea/
+Cairn_Project_Plan.md

@@ -1,9 +1,9 @@
-.PHONY: db-up db-down db-reset psql run build test lint tidy fmt clean cover
+.PHONY: db-up db-down db-reset psql run build test lint tidy fmt clean cover docker-build up down logs
 
 DB_URL ?= postgres://cairn:cairn@localhost:5432/cairn?sslmode=disable
 
 db-up:
-	docker compose -f deploy/docker-compose.yml up -d
+	docker compose -f deploy/docker-compose.yml up -d postgres
 	@echo "waiting for postgres..."
 	@until docker exec cairn-postgres pg_isready -U cairn -d cairn >/dev/null 2>&1; do sleep 1; done
 	@echo "postgres ready"
@@ -29,6 +29,7 @@ test:
 
 lint:
 	go vet ./...
+	golangci-lint run
 
 tidy:
 	go mod tidy
@@ -43,6 +44,17 @@ cover:
 	go test ./... -coverprofile=coverage.out
 	go tool cover -func=coverage.out | tail -1
 
+docker-build:
+	docker build -f deploy/Dockerfile -t cairn:dev .
+
+up:
+	docker compose -f deploy/docker-compose.yml up -d --build
+
+down:
+	docker compose -f deploy/docker-compose.yml down
+
+logs:
+	docker compose -f deploy/docker-compose.yml logs -f app
 
 
 

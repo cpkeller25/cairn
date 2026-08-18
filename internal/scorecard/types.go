@@ -25,7 +25,7 @@ type Facts struct {
 
 	// FetchedAt is when these facts were gathered.  Recency checks measure
 	// against this rather than calling time.Now(), which keeps the engine
-	// determinisic and testable.
+	// deterministic and testable.
 	FetchedAt time.Time
 }
 
