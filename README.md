@@ -1,13 +1,17 @@
 # Cairn
 
+[![CI](https://github.com/cpkeller25/cairn/actions/workflows/ci.yml/badge.svg)](https://github.com/cpkeller25/cairn/actions/workflows/ci.yml)
+[![Go](https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 A miniature service catalog and maturity scorecard — Go, Postgres, Docker, CI.
 
 Cairn answers one question for an engineering org: **how healthy is each of our
 services, and who owns it?** Register a service, point it at a repository, and
 Cairn scores it against a weighted set of maturity checks.
 
-**Status:** In development. Phases 0–4 complete (skeleton, scorecard engine,
-REST API, Postgres, GitHub ingestion).
+**Status:** In development. Phases 0–5 complete (skeleton, scorecard engine,
+REST API, Postgres, GitHub ingestion, Docker + CI).
 
 **Requires:** Go 1.25+, Docker, and the Compose plugin (`docker compose`).
 
@@ -31,6 +35,20 @@ ID=$(curl -s -X POST $BASE/services \
 
 curl -s -X POST $BASE/services/$ID/evaluate | jq
 ```
+
+## Running in Docker
+
+```bash
+make up         # builds the image, starts Postgres + app
+make logs
+curl localhost:8081/healthz
+make down
+```
+
+The image is a multi-stage build onto `distroless/static`: a 364 MB Go
+toolchain compiles the binary, and the final image is **21.7 MB** containing
+only that binary, CA certificates, and a non-root user — no shell, no package
+manager.
 
 ## Configuration
 
@@ -95,7 +113,7 @@ Known limitations, stated plainly:
 | `make run`      | Run the server locally on port 8081                         |
 | `make test`     | Run all tests with the race detector                        |
 | `make cover`    | Run tests and report total coverage                         |
-| `make lint`     | Static analysis (`go vet`)                                  |
+| `make lint`     | Static analysis (`go vet` + `golangci-lint`)                |
 | `make fmt`      | Format with `gofmt`                                         |
 | `make build`    | Build binary to `bin/cairn`                                 |
 | `make tidy`     | Sync `go.mod` / `go.sum`                                    |
@@ -104,12 +122,22 @@ Known limitations, stated plainly:
 | `make db-down`  | Stop Postgres in Docker                                     |
 | `make db-reset` | **Destroy** the database and start fresh (deletes all data) |
 | `make psql`     | Access Postgres tables in Docker                            |
+| `make docker-build` | Build the container image as `cairn:dev`                |
+| `make up`       | Build the image and start Postgres + app in Docker          |
+| `make down`     | Stop the full Docker stack                                  |
+| `make logs`     | Follow the app container's logs                             |
 
 `make test` starts throwaway Postgres containers via
 [testcontainers](https://testcontainers.com), so Docker must be running.
 Use `go test ./... -short` to skip the integration tests. The GitHub adapter is
 tested against an `httptest` server serving canned API responses, so no test
 makes a live network call.
+
+`make lint` requires [golangci-lint](https://golangci-lint.run/welcome/install/):
+
+```bash
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+```
 
 ## API
 
