@@ -13,13 +13,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cpkeller25/cairn/internal/catalog"
+	"github.com/cpkeller25/cairn/internal/ingest"
 	"github.com/cpkeller25/cairn/internal/scorecard"
 	"github.com/cpkeller25/cairn/internal/store"
 )
 
 // Compile-time proof that MemoryStore satisfies the Store interface. If the
 // interface and the implementation ever drift, this fails to build.
-var _ Store = (*store.MemoryStore)(nil)
+var (
+	_ Store       = (*store.MemoryStore)(nil)
+	_ Store       = (*store.PostgresStore)(nil)
+	_ FactFetcher = (*ingest.GitHubFetcher)(nil)
+	_ FactFetcher = (*ingest.StubFetcher)(nil)
+)
 
 // ---------- test doubles ----------
 

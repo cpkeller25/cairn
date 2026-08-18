@@ -42,7 +42,7 @@ func run() error {
 
 	// The composition root: the only place that names concrete adapters.
 	st := store.NewPostgresStore(pool)
-	fetcher := ingest.NewStubFetcher()
+	fetcher := ingest.NewGitHubFetcher(cfg.GitHubToken)
 	apiServer := api.NewServer(st, fetcher)
 
 	srv := &http.Server{

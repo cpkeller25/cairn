@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -127,6 +128,13 @@ func (s *Server) handleEvaluateService(w http.ResponseWriter, r *http.Request) {
 
 	facts, err := s.fetcher.Fetch(ctx, svc.RepoURL)
 	if err != nil {
+		if errors.Is(err, catalog.ErrRepoUnreadable) {
+			writeError(w, http.StatusUnprocessableEntity,
+				"repository could not be read: check repo_url, or the repository may be "+
+					"private and require GITHUB_TOKEN")
+			return
+		}
+		log.Printf("api: fetching facts for %s: %v", svc.Name, err)
 		writeError(w, http.StatusBadGateway, "could not gather repository facts")
 		return
 	}

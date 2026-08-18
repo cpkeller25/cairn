@@ -18,6 +18,10 @@ import (
 var (
 	ErrNotFound  = errors.New("service not found")
 	ErrNameTaken = errors.New("service name already in use")
+
+	// ErrRepoUnreadable means the service's repository could not be read:
+	// wrong host, malformed URL, or the repository does not exist.
+	ErrRepoUnreadable = errors.New("repository could not be read")
 )
 
 const (

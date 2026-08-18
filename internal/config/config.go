@@ -15,6 +15,10 @@ type Config struct {
 	// Database URL is a libpq-style connection string, e.g
 	// postgres://user:pass@host:5432/dbname?sslmode=disable
 	DatabaseURL string
+
+	// GitHubToken authenticates calls to the GitHub API.  Optional: without it,
+	// GitHub allows 60 requests/hour by IP rather than 5000/hour by token.
+	GitHubToken string
 }
 
 // Load reads configuration from the environment, applying defaults and
@@ -23,6 +27,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		Port:        envOr("PORT", "8080"),
 		DatabaseURL: strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		GitHubToken: strings.TrimSpace(os.Getenv("GITHUB_TOKEN")),
 	}
 
 	var missing []string

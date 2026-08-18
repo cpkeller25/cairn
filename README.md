@@ -6,7 +6,8 @@ Cairn answers one question for an engineering org: **how healthy is each of our
 services, and who owns it?** Register a service, point it at a repository, and
 Cairn scores it against a weighted set of maturity checks.
 
-**Status:** In development. Phases 0–3 complete (skeleton, scorecard engine, REST API, Postgres).
+**Status:** In development. Phases 0–4 complete (skeleton, scorecard engine,
+REST API, Postgres, GitHub ingestion).
 
 **Requires:** Go 1.22+, Docker, and the Compose plugin (`docker compose`).
 
@@ -17,6 +18,27 @@ make db-up      # start Postgres in Docker
 make run        # migrations run automatically at startup
 curl localhost:8081/healthz
 ```
+
+Register a service and score it:
+
+```bash
+BASE=http://localhost:8081/api/v1
+
+ID=$(curl -s -X POST $BASE/services \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"go","owner_team":"golang","repo_url":"https://github.com/golang/go","tier":1}' \
+  | jq -r .id)
+
+curl -s -X POST $BASE/services/$ID/evaluate | jq
+```
+
+## Configuration
+
+| Variable       | Default    | Purpose                                                |
+|----------------|------------|--------------------------------------------------------|
+| `PORT`         | `8080`     | Listen port (`make run` overrides it to `8081`)        |
+| `DATABASE_URL` | *required* | Postgres connection string; the service exits without it |
+| `GITHUB_TOKEN` | *optional* | Raises the GitHub API rate limit from 60 to 5,000 requests/hour, and is required to read private repositories |
 
 ## The scorecard model
 
@@ -46,6 +68,26 @@ The engine (`internal/scorecard`) performs no I/O — it takes `Facts` in and
 returns a `Report`. That keeps it fully unit-testable and independent of where
 the facts came from.
 
+## Where the facts come from
+
+`POST /api/v1/services/{id}/evaluate` reads the repository through the GitHub
+REST API in two requests: repository metadata, then the recursive file tree.
+Every file-based fact is derived from that single file list rather than one
+request per check.
+
+Known limitations, stated plainly:
+
+- **`has_tests` is a heuristic** over file paths. It recognises common
+  conventions (`*_test.go`, `test_*.py`, `*.spec.ts`, `spec/`, `tests/`) but
+  will miss unusual layouts. Determining this exactly would require the code
+  search API, which is heavily rate-limited.
+- **Private repositories return `404`** from the GitHub API when
+  unauthenticated — GitHub deliberately does not distinguish "forbidden" from
+  "not found" — so evaluating one requires `GITHUB_TOKEN`.
+- **Only `github.com` is supported.** Other hosts are rejected with `422`.
+  Adding GitLab means one new implementation of the `FactFetcher` interface and
+  no change to the API or domain layers.
+
 ## Development
 
 | Command         | Does                                                        |
@@ -65,9 +107,12 @@ the facts came from.
 
 `make test` starts throwaway Postgres containers via
 [testcontainers](https://testcontainers.com), so Docker must be running.
-Use `go test ./... -short` to skip the integration tests.
+Use `go test ./... -short` to skip the integration tests. The GitHub adapter is
+tested against an `httptest` server serving canned API responses, so no test
+makes a live network call.
 
 ## API
+
 | Method & path                         | Purpose                                  |
 |---------------------------------------|------------------------------------------|
 | `POST /api/v1/services`               | Register a service                       |
@@ -78,5 +123,4 @@ Use `go test ./... -short` to skip the integration tests.
 | `GET /api/v1/checks`                  | Check definitions and weights            |
 | `GET /healthz`                        | Liveness probe                           |
 
-Data is persisted in Postgres. Repository facts currently come from a
-deterministic stub — Phase 4 adds the GitHub adapter.
+Data is persisted in Postgres; repository facts come from the GitHub REST API.

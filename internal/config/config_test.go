@@ -58,3 +58,16 @@ func TestLoadTrimsWhitespace(t *testing.T) {
 		t.Error("DatabaseURL was not trimmed")
 	}
 }
+
+func TestLoadGitHubTokenIsOptional(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
+	t.Setenv("GITHUB_TOKEN", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() should not require GITHUB_TOKEN: %v", err)
+	}
+	if cfg.GitHubToken != "" {
+		t.Errorf("GitHubToken = %q, want empty", cfg.GitHubToken)
+	}
+}
