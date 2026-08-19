@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -19,6 +20,12 @@ type Config struct {
 	// GitHubToken authenticates calls to the GitHub API.  Optional: without it,
 	// GitHub allows 60 requests/hour by IP rather than 5000/hour by token.
 	GitHubToken string
+
+	// LogLevel is one of debug, info, warn, error.
+	LogLevel string
+
+	// LogFormat is "json" or "text". JSON for production, text for local reading
+	LogFormat string
 }
 
 // Load reads configuration from the environment, applying defaults and
@@ -28,6 +35,8 @@ func Load() (Config, error) {
 		Port:        envOr("PORT", "8080"),
 		DatabaseURL: strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		GitHubToken: strings.TrimSpace(os.Getenv("GITHUB_TOKEN")),
+		LogLevel:    strings.ToLower(envOr("LOG_LEVEL", "info")),
+		LogFormat:   strings.ToLower(envOr("LOG_FORMAT", "json")),
 	}
 
 	var missing []string
@@ -52,4 +61,18 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// SlogLevel maps the configured level onto slog's type, defaulting to Info
+func (c Config) SlogLevel() slog.Level {
+	switch c.LogLevel {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }

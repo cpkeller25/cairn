@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
-	"log"
+	"errors"
+	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/cpkeller25/cairn/internal/api"
@@ -15,7 +19,8 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatal(err)
+		slog.Error("startup failed", "error", err)
+		os.Exit(1)
 	}
 }
 
@@ -27,7 +32,12 @@ func run() error {
 		return err
 	}
 
-	ctx := context.Background()
+	logger := newLogger(cfg)
+	slog.SetDefault(logger)
+
+	// Cancelled on SIGINT or SIGTERM, which starts the shutdown sequence.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	pool, err := store.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -38,12 +48,15 @@ func run() error {
 	if err := store.Migrate(pool); err != nil {
 		return err
 	}
-	log.Printf("migrations up to date")
+	logger.Info("migrations up to date")
 
 	// The composition root: the only place that names concrete adapters.
 	st := store.NewPostgresStore(pool)
 	fetcher := ingest.NewGitHubFetcher(cfg.GitHubToken)
-	apiServer := api.NewServer(st, fetcher)
+	apiServer := api.NewServer(st, fetcher,
+		api.WithLogger(logger),
+		api.WithReadyChecker(pool),
+	)
 
 	srv := &http.Server{
 		Handler:      apiServer.Routes(),
@@ -57,10 +70,43 @@ func run() error {
 		return err
 	}
 
-	log.Printf("cairn listening on %s", ln.Addr())
+	// Serve in the background so main can wait on the shutdown signal.
+	serveErr := make(chan error, 1)
 
-	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+	go func() {
+		logger.Info("cairn listening", "addr", ln.Addr().String())
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serveErr <- err
+			return
+		}
+		serveErr <- nil
+	}()
+
+	select {
+	case err := <-serveErr:
+		return err
+	case <-ctx.Done():
+		logger.Info("shutdown signal received, draining connections")
+	}
+
+	// Give in-flight requests up to 15 seconds to finish.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Error("graceful shutdown failed", "error", err)
 		return err
 	}
+
+	logger.Info("shutdown complete")
 	return nil
+}
+
+func newLogger(cfg config.Config) *slog.Logger {
+	opts := &slog.HandlerOptions{Level: cfg.SlogLevel()}
+
+	if cfg.LogFormat == "text" {
+		return slog.New(slog.NewTextHandler(os.Stdout, opts))
+	}
+	return slog.New(slog.NewJSONHandler(os.Stdout, opts))
 }

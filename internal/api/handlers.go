@@ -1,11 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -16,8 +17,33 @@ import (
 // maxBodyBytes caps request bodies so a malicious client cannot exhause memory
 const maxBodyBytes = 1 << 20 // 1 MiB
 
+// handleHealthz reports that the process is alive. It touches no depndencies,
+// so a restart loop caused by a flaky database is impossible.
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// handleReadyz reports whether the service can actually serve traffic, which
+// means its database is reachable.
+func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
+	if s.ready == nil {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := s.ready.Ping(ctx); err != nil {
+		loggerFrom(ctx).Warn("readiness check failed", "error", err)
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"status": "not ready",
+			"reason": "database unreachable",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
 // handleCreateService registers a service
@@ -35,12 +61,12 @@ func (s *Server) handleCreateService(w http.ResponseWriter, r *http.Request) {
 		Tier:        req.Tier,
 	}, s.now())
 	if err != nil {
-		writeDomainError(w, err)
+		writeDomainError(r.Context(), w, err)
 		return
 	}
 
 	if err := s.store.CreateService(r.Context(), svc); err != nil {
-		writeDomainError(w, err)
+		writeDomainError(r.Context(), w, err)
 		return
 	}
 
@@ -54,7 +80,7 @@ func (s *Server) handleListServices(w http.ResponseWriter, r *http.Request) {
 
 	services, err := s.store.ListServices(ctx)
 	if err != nil {
-		writeDomainError(w, err)
+		writeDomainError(r.Context(), w, err)
 		return
 	}
 
@@ -62,7 +88,7 @@ func (s *Server) handleListServices(w http.ResponseWriter, r *http.Request) {
 	for _, svc := range services {
 		report, found, err := s.store.GetReport(ctx, svc.ID)
 		if err != nil {
-			writeDomainError(w, err)
+			writeDomainError(r.Context(), w, err)
 			return
 		}
 		out = append(out, toServiceResponse(svc, report, found))
@@ -83,13 +109,13 @@ func (s *Server) handleGetService(w http.ResponseWriter, r *http.Request) {
 
 	svc, err := s.store.GetService(ctx, id)
 	if err != nil {
-		writeDomainError(w, err)
+		writeDomainError(r.Context(), w, err)
 		return
 	}
 
 	report, found, err := s.store.GetReport(ctx, id)
 	if err != nil {
-		writeDomainError(w, err)
+		writeDomainError(r.Context(), w, err)
 		return
 	}
 
@@ -104,7 +130,7 @@ func (s *Server) handleDeleteService(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.store.DeleteService(r.Context(), id); err != nil {
-		writeDomainError(w, err)
+		writeDomainError(r.Context(), w, err)
 		return
 	}
 
@@ -122,19 +148,21 @@ func (s *Server) handleEvaluateService(w http.ResponseWriter, r *http.Request) {
 
 	svc, err := s.store.GetService(ctx, id)
 	if err != nil {
-		writeDomainError(w, err)
+		writeDomainError(r.Context(), w, err)
 		return
 	}
 
 	facts, err := s.fetcher.Fetch(ctx, svc.RepoURL)
 	if err != nil {
 		if errors.Is(err, catalog.ErrRepoUnreadable) {
+			evaluationsTotal.WithLabelValues("repo_unreadable").Inc()
 			writeError(w, http.StatusUnprocessableEntity,
 				"repository could not be read: check repo_url, or the repository may be "+
 					"private and require GITHUB_TOKEN")
 			return
 		}
-		log.Printf("api: fetching facts for %s: %v", svc.Name, err)
+		evaluationsTotal.WithLabelValues("fetch_failed").Inc()
+		loggerFrom(ctx).Error("fetching repository facts", "service", svc.Name, "repo_url", svc.RepoURL, "error", err)
 		writeError(w, http.StatusBadGateway, "could not gather repository facts")
 		return
 	}
@@ -145,9 +173,12 @@ func (s *Server) handleEvaluateService(w http.ResponseWriter, r *http.Request) {
 	report := scorecard.Evaluate(facts)
 
 	if err := s.store.SaveReport(ctx, id, report); err != nil {
-		writeDomainError(w, err)
+		writeDomainError(r.Context(), w, err)
 		return
 	}
+
+	evaluationsTotal.WithLabelValues("success").Inc()
+	evaluationScore.Observe(float64(report.OverallScore))
 
 	writeJSON(w, http.StatusOK, toServiceResponse(svc, report, true))
 }

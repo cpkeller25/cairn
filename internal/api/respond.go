@@ -1,9 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/cpkeller25/cairn/internal/catalog"
@@ -21,7 +22,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		// The status and headers are already sent, so we cannot change the
 		// response.  All we can do is record it.
-		log.Printf("api: encoding response: %v", err)
+		slog.Default().Error("encoding response", "error", err)
 	}
 }
 
@@ -40,8 +41,9 @@ func writeValidationError(w http.ResponseWriter, verrs catalog.ValidationErrors)
 
 // writeDomainError maps a domain or store error onto an HTTP status.
 // Unrecognised errors become 500 and are logged, never echoed to the client.
-func writeDomainError(w http.ResponseWriter, err error) {
+func writeDomainError(ctx context.Context, w http.ResponseWriter, err error) {
 	var verrs catalog.ValidationErrors
+
 	switch {
 	case errors.As(err, &verrs):
 		writeValidationError(w, verrs)
@@ -50,7 +52,7 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, catalog.ErrNameTaken):
 		writeError(w, http.StatusConflict, "a service with that name already exists")
 	default:
-		log.Printf("api: unhandled error: %v", err)
+		loggerFrom(ctx).Error("unhandled error", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
 	}
 }

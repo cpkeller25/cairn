@@ -1,4 +1,4 @@
-.PHONY: db-up db-down db-reset psql run build test lint tidy fmt clean cover docker-build up down logs
+.PHONY: db-up db-down db-reset psql run build test lint tidy fmt clean cover docker-build up down logs seed
 
 DB_URL ?= postgres://cairn:cairn@localhost:5432/cairn?sslmode=disable
 
@@ -55,6 +55,9 @@ down:
 
 logs:
 	docker compose -f deploy/docker-compose.yml logs -f app
+
+seed:
+	DATABASE_URL="$(DB_URL)" go run ./cmd/seed
 
 
 

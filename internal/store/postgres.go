@@ -96,6 +96,8 @@ func (s *PostgresStore) GetService(ctx context.Context, id uuid.UUID) (catalog.S
 	if err != nil {
 		return catalog.Service{}, fmt.Errorf("selecting service: %w", err)
 	}
+	svc.CreatedAt = svc.CreatedAt.UTC()
+	svc.UpdatedAt = svc.UpdatedAt.UTC()
 	return svc, nil
 }
 
@@ -120,6 +122,8 @@ func (s *PostgresStore) ListServices(ctx context.Context) ([]catalog.Service, er
 		); err != nil {
 			return nil, fmt.Errorf("scanning service: %w", err)
 		}
+		svc.CreatedAt = svc.CreatedAt.UTC()
+		svc.UpdatedAt = svc.UpdatedAt.UTC()
 		out = append(out, svc)
 	}
 	if err := rows.Err(); err != nil {
